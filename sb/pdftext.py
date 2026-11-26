@@ -174,7 +174,7 @@ def reflow(block):
         if not cur:
             cur = ln
         elif re.search(r"[A-Za-z]-$", cur) and ln[0].islower():
-            first = re.match(r"[a-z]+", ln).group(0)
+            first = re.match(r"[^\W\d_]+", ln).group(0)
             cur = cur + ln if first in KEEP_HYPHEN else cur[:-1] + ln
         elif cur[-1] in ".?!:" and last < 0.7 * longest:
             paras.append(cur)

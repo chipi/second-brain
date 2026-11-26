@@ -108,6 +108,9 @@ class Parsing(unittest.TestCase):
     def test_hyphen_join_drops_the_hyphen_but_keeps_a_compound(self):
         self.assertEqual(pdftext.reflow(["the informa-", "tion age and English-", "to-German pairs"]), "the information age and English-to-German pairs")
 
+    def test_a_line_starting_with_a_non_ascii_lowercase_letter_joins(self):
+        self.assertEqual(pdftext.reflow(["the r-", "\u00e9sum\u00e9 of a caf-", "\u00e9"]), "the r\u00e9sum\u00e9 of a caf\u00e9")
+
     def test_headings(self):
         st = {"top": 0}
         got = [pdftext.heading(x, st) for x in ["1 Introduction", "2. Related Work", "2.1 Sub part", "ABSTRACT", "REFERENCES", "I. INTRODUCTION",
