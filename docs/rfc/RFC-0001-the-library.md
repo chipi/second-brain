@@ -62,7 +62,7 @@ flowchart LR
 
 - `verticals/<v>/topics.yaml`: the vertical's sub-topics, each with search queries (arXiv
   categories and terms, NTRS terms). A scheduler reads it to propose new papers.
-- `papers/<v>/<id>.json`: one manifest per paper: the versioned source id (`arxiv:2310.06770v3`,
+- `papers/<v>/<id>.json`: one manifest per paper: the versioned source id (`arxiv:2001.00001v3`,
   `ntrs:20190000123`, `doi:...`), title, authors, year, sub-topic, tier (foundational or recent),
   why it is in, and who decided (an approver and a reference, or "seeded").
 - **Texts are not in git.** They are derived: fetched again from the versioned id at build time and

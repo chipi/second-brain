@@ -24,11 +24,11 @@ TOOLS = [
      "annotations": {"readOnlyHint": True}},
     {"name": "read", "description": "Without section: a paper's title, abstract and section titles. With section: that section's text (capped at 12000 chars).",
      "inputSchema": {"type": "object", "properties": {
-         "paper": {"type": "string", "description": "paper id such as arxiv:2310.06770"},
+         "paper": {"type": "string", "description": "paper id such as arxiv:2001.00001"},
          "section": {"type": "string", "description": "a section title from the section list"}}, "required": ["paper"]},
      "annotations": {"readOnlyHint": True}},
     {"name": "paper", "description": "A paper's manifest: title, authors, year, verticals, why it is in, who approved it, and links.",
-     "inputSchema": {"type": "object", "properties": {"id": {"type": "string", "description": "paper id such as arxiv:2310.06770"}}, "required": ["id"]},
+     "inputSchema": {"type": "object", "properties": {"id": {"type": "string", "description": "paper id such as arxiv:2001.00001"}}, "required": ["id"]},
      "annotations": {"readOnlyHint": True}},
 ]
 

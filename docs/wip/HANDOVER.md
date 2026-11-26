@@ -102,7 +102,7 @@ What exists (package `sb/`, standard library only, 43 unit tests in `tests/`, `m
 Contract notes. Tool results carry the payload as JSON text in `content[0].text` and again as `structuredContent`.
 A bad argument is a JSON-RPC error (-32602); an unknown paper or section is a result with `isError: true`.
 `read` finds a section by exact title, number or unique substring. A query is turned into quoted words joined by
-OR, so FTS5 syntax in a question cannot break it. Ids are the seed's unversioned form (`arxiv:2310.06770`); the
+OR, so FTS5 syntax in a question cannot break it. Ids are the seed's unversioned form (`arxiv:2001.00001`); the
 versioned id is in `paper`'s `versioned_id` once a text is fetched (AGENTS.md rule 4 is met only after a fetch).
 `tests/test_index_server.py` has a flotilla-client interop test, skipped unless `SB_FLOTILLA_RUNTIME` names
 flotilla's `runtime/` directory.

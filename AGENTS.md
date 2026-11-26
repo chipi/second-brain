@@ -24,7 +24,8 @@ their text, index it, serve it read-only over MCP. Design:
 
 1. **Public tooling, private content.** Never commit a corpus: no manifests of a real library, no
    paper texts, no topic lists of a real installation, no host names, user paths or credentials.
-   Tests use a small fixture library under `tests/fixtures/`, made for the purpose.
+   Tests use a small fixture library under `tests/fixtures/`, made for the purpose. Examples in code,
+   docs and tests use made-up ids and titles (`arxiv:2001.00001`), never one from the real list.
 2. **The read server is read-only,** holds no credential, and mounts the corpus read-only.
 3. **The MCP tools are a contract.** `search`, `read` and `paper` keep their names and fields; a
    change is versioned and noted in the changelog, since other repos call them.

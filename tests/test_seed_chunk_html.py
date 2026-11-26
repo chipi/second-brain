@@ -10,12 +10,12 @@ from sb import build, htmltext, ids, seed
 
 class Ids(unittest.TestCase):
     def test_safe_ids(self):
-        self.assertEqual(ids.safe_id("arxiv:2310.06770"), "arxiv_2310.06770")
+        self.assertEqual(ids.safe_id("arxiv:2001.00001"), "arxiv_2001.00001")
         self.assertEqual(ids.safe_id("doi:10.1007/BF00048484"), "doi_10.1007_bf00048484")
-        self.assertEqual(ids.safe_id("ntrs:20160008256"), "ntrs_20160008256")
+        self.assertEqual(ids.safe_id("ntrs:20000000001"), "ntrs_20000000001")
 
     def test_normalize_drops_arxiv_version(self):
-        self.assertEqual(ids.normalize("arxiv:2310.06770v3"), "arxiv:2310.06770")
+        self.assertEqual(ids.normalize("arxiv:2001.00001v3"), "arxiv:2001.00001")
         self.assertEqual(ids.normalize("doi:10.1000/ABC"), "doi:10.1000/abc")
 
 
