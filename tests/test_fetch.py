@@ -66,7 +66,7 @@ class ArxivBatch(Base):
         atom = ATOM % (ENTRY % {"id": "2001.00001", "v": 2, "year": 2020, "title": "Frontier"} + ENTRY % {"id": "2002.00002", "v": 1, "year": 2021, "title": "Repair"})
         f = self.fetcher({"https://export.arxiv.org/api/query": [(200, atom)], "https://arxiv.org/html/": [(200, PAGE), (404, "")]})
         stats = fetch.fetch_all(self.content, self.data, f, only=["arxiv:2001.00001", "arxiv:2002.00002"])
-        self.assertEqual(stats, {"wanted": 2, "html": 1, "abstract": 1, "failed": 0})
+        self.assertEqual(stats, {"wanted": 2, "library": 2, "html": 1, "abstract": 1, "failed": 0})
         api = [u for u in self.http.calls if "export.arxiv.org" in u]
         self.assertEqual(len(api), 1)
         self.assertIn("id_list=2001.00001,2002.00002", api[0])
@@ -113,7 +113,7 @@ class OtherSourcesAndRuns(Base):
         f = self.fetcher({"https://ntrs.nasa.gov/api/citations/20000000001": [(200, self.NTRS)],
                           "https://api.crossref.org/works/10.1000/fixture.2": [(200, self.CROSSREF)]})
         stats = fetch.fetch_all(self.content, self.data, f, only=["ntrs:20000000001", "doi:10.1000/fixture.2"])
-        self.assertEqual(stats, {"wanted": 2, "html": 0, "abstract": 2, "failed": 0})
+        self.assertEqual(stats, {"wanted": 2, "library": 2, "html": 0, "abstract": 2, "failed": 0})
         n = self.text("ntrs_20000000001.json")
         self.assertEqual((n["abstract"], n["year"], n["authors"], n["abstract_only"]), ("An NTRS abstract.", 1970, ["C. Test"], True))
         d = self.text("doi_10.1000_fixture.2.json")

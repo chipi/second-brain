@@ -161,15 +161,17 @@ def _doc(m, meta, sections, kind, versioned=None, note=None):
 def fetch_all(content, data, fetcher, limit=None, only=None):
     wanted_ids = {ids.normalize(o) for o in only} if only else None
     todo = []
+    library = 0
     for m in load_manifests(content):
         if wanted_ids is not None and m["id"] not in wanted_ids:
             continue
+        library += 1
         if os.path.exists(text_path(data, m["id"])):
             continue
         todo.append(m)
     if limit is not None:
         todo = todo[:limit]
-    stats = {"wanted": len(todo), "html": 0, "abstract": 0, "failed": 0}
+    stats = {"wanted": len(todo), "library": library, "html": 0, "abstract": 0, "failed": 0}
     failures = {}
 
     def fail(m, why):

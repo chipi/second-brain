@@ -243,9 +243,9 @@ def fulltext_all(content, data, fetcher, limit=None, only=None, retry=False, ocr
     wanted_ids = {ids.normalize(o) for o in only} if only else None
     stats = {"wanted": 0, "html": 0, "pdf": 0, "ocr": 0, "abstract": 0, "failed": 0, "skipped_final": 0, "no_text": 0}
     outcomes = {}
-    for m in load_manifests(content):
-        if wanted_ids is not None and m["id"] not in wanted_ids:
-            continue
+    manifests = [m for m in load_manifests(content) if wanted_ids is None or m["id"] in wanted_ids]
+    stats["library"] = len(manifests)
+    for m in manifests:
         path = text_path(data, m["id"])
         if not os.path.exists(path):
             stats["no_text"] += 1

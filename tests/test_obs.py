@@ -263,6 +263,15 @@ class MetricsFile(unittest.TestCase):
 class FailedShare(unittest.TestCase):
     """A failed fetch is retried next run: a few fail the step only above a share, so a first build can still serve."""
 
+    def test_by_default_paper_failures_never_fail_the_step(self):
+        """The operator's rule (2026-11-26): a paper that does not fetch is skipped and reported (sb_fetch_failures,
+        sb_fulltext_outcomes), never a failed step; only sb's own errors are (exit 2)."""
+        p = cli.parser()
+        a = p.parse_args(["fulltext", "--content", "c", "--data", "d"])
+        self.assertEqual(cli._failed_exit({"wanted": 291, "failed": 291, "library": 291}, a.max_failed_share, "fulltext"), 0)
+        a = p.parse_args(["fetch", "--content", "c", "--data", "d"])
+        self.assertEqual(cli._failed_exit({"wanted": 3, "failed": 3, "library": 3}, a.max_failed_share, "fetch"), 0)
+
     def test_one_failure_in_291_is_a_warning_not_a_failed_step(self):
         self.assertEqual(cli._failed_exit({"wanted": 291, "failed": 1}, 0.05, "fulltext"), 0)
 
@@ -274,6 +283,21 @@ class FailedShare(unittest.TestCase):
 
     def test_nothing_failed_is_success(self):
         self.assertEqual(cli._failed_exit({"wanted": 0, "failed": 0}, 0.05, "fetch"), 0)
+
+    def test_a_rerun_where_only_the_one_failure_remains_is_a_warning(self):
+        """The share is of the library, not of this run's wanted: a re-run that has only the stubborn paper left is 1 of 291, not 1 of 1."""
+        self.assertEqual(cli._failed_exit({"wanted": 1, "failed": 1, "library": 291}, 0.05, "fulltext"), 0)
+        self.assertEqual(cli._failed_exit({"wanted": 20, "failed": 20, "library": 291}, 0.05, "fulltext"), 1)
+
+    def test_fetch_and_fulltext_report_the_library_they_looked_at(self):
+        tmp, content, data = support.make_library("l")
+        self.addCleanup(shutil.rmtree, tmp)
+        from sb import fetch, fulltext
+        n = len([f for f in os.listdir(os.path.join(content, "papers")) if f.endswith(".json")])
+        self.assertGreater(n, 1)
+        self.assertEqual(fulltext.fulltext_all(content, data, None, limit=0)["library"], n)
+        self.assertEqual(fetch.fetch_all(content, data, None, limit=0)["library"], n)
+        self.assertEqual(fulltext.fulltext_all(content, data, None, limit=0, only=["none:x"])["library"], 0)
 
     def test_the_option_is_read_by_fulltext(self):
         tmp, content, data = support.make_library("f")

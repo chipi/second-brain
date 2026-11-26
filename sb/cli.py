@@ -72,18 +72,20 @@ def _metrics_file(a, families):
 
 
 def _failed_exit(stats, max_share, step):
-    """A failed fetch is retried next run, so a few fail the step only above a share: a first build can then still serve."""
-    failed, wanted = stats.get("failed", 0), stats.get("wanted", 0)
+    """A failed fetch is retried next run, so a few fail the step only above a share of the library (not of this run's wanted: a re-run
+    left with one stubborn paper would be 1 of 1): a first build can then still serve."""
+    failed = stats.get("failed", 0)
+    total = stats.get("library") or stats.get("wanted", 0)
     if not failed:
         return 0
-    if wanted and failed / wanted <= max_share:
-        print(f"sb: {step}: {failed} of {wanted} failed, within {max_share:.0%}: retried next run", file=sys.stderr)
+    if total and failed / total <= max_share:
+        print(f"sb: {step}: {failed} of {total} in the library failed, within {max_share:.0%}: retried next run", file=sys.stderr)
         return 0
-    print(f"sb: {step}: {failed} of {wanted} failed, over {max_share:.0%}", file=sys.stderr)
+    print(f"sb: {step}: {failed} of {total} in the library failed, over {max_share:.0%}", file=sys.stderr)
     return 1
 
 
-def main(argv=None):
+def parser():
     p = argparse.ArgumentParser(prog="sb")
     sub = p.add_subparsers(dest="cmd", required=True)
     common = argparse.ArgumentParser(add_help=False)
@@ -91,8 +93,9 @@ def main(argv=None):
     mfile = argparse.ArgumentParser(add_help=False)
     mfile.add_argument("--metrics-file", help="write the run's outcome here as a Prometheus text file")
     share = argparse.ArgumentParser(add_help=False)
-    share.add_argument("--max-failed-share", type=float, default=0.05,
-                       help="fail the step (exit 1) only when more than this share of the papers wanted failed (default 0.05; 0: any)")
+    # a paper that does not fetch is skipped and reported, never a failed step (the operator, 2026-11-26): only sb's own errors are
+    share.add_argument("--max-failed-share", type=float, default=1.0,
+                       help="fail the step (exit 1) when more than this share of the library failed (default 1: never; 0: on any)")
 
     s = sub.add_parser("seed", help="write one manifest per seed entry into CONTENT/papers")
     s.add_argument("--content", required=True)
@@ -132,7 +135,11 @@ def main(argv=None):
     s.add_argument("--port", type=int, default=8790)
     s.add_argument("--token-file")
 
-    a = p.parse_args(argv)
+    return p
+
+
+def main(argv=None):
+    a = parser().parse_args(argv)
     if hasattr(a, "log_format"):
         a.log_format = a.log_format or ("json" if a.cmd == "serve" else "text")
         obs.configure_logging(a.log_format)
