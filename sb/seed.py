@@ -26,6 +26,8 @@ def seed(content):
             continue
         for e in _read_seed(os.path.join(sdir, name)):
             pid = ids.normalize(e["id"])
+            if ids.kind(pid) == "url" and not ids.is_url(ids.bare(pid)):
+                raise SystemExit(f"{os.path.join(sdir, name)}: {e['id']!r} is not an absolute http(s) URL")
             m = entries.setdefault(pid, {"id": pid, "verticals": [], "subtopics": {}, "title": e["title"], "year": e.get("year"),
                                          "why": {}, "html": False, "sources": []})
             v = e["vertical"]

@@ -39,19 +39,20 @@ class Http:
 
 
 class Fetcher:
-    def __init__(self, http=None, sleep=time.sleep, clock=time.monotonic, api_gap=3.0, html_gap=1.0, pdf_gap=3.0, log=lambda m: None):
+    def __init__(self, http=None, sleep=time.sleep, clock=time.monotonic, api_gap=3.0, html_gap=1.0, pdf_gap=3.0, page_gap=1.0, log=lambda m: None):
         self.http, self.sleep, self.clock, self.log = http or Http(), sleep, clock, log
         self.gaps = {"export.arxiv.org": api_gap, "arxiv.org": html_gap, "ntrs.nasa.gov": 1.0}
-        self.pdf_gap = pdf_gap
+        self.pdf_gap, self.page_gap = pdf_gap, page_gap
         self.last = {}
 
-    def get(self, url):
+    def get(self, url, page=False):
+        """`page`: a web page of the url kind, any host; a host without a gap of its own gets `page_gap`."""
         host = urllib.parse.urlsplit(url).hostname
         for wait in (0,) + BACKOFF:
             if wait:
                 self.log(f"429 from {host}: waiting {wait}s")
                 self.sleep(wait)
-            gap = self.gaps.get(host)
+            gap = self.gaps.get(host, self.page_gap if page else None)
             if host == "arxiv.org" and urllib.parse.urlsplit(url).path.startswith("/pdf/"):
                 gap = self.pdf_gap
             if gap and host in self.last:
@@ -217,6 +218,9 @@ def fetch_all(content, data, fetcher, limit=None, only=None):
     for m in todo:
         k = ids.kind(m["id"])
         if k == "arxiv":
+            continue
+        if k == "url":
+            done(m, _doc(m, {}, [], "abstract", note="metadata from the seed; the page text comes from the fulltext pass"))
             continue
         try:
             if k == "ntrs":

@@ -4,14 +4,14 @@ A personal research corpus you choose and own. It fetches the papers you picked,
 text, indexes it, and serves it read-only over MCP, so an agent (or you, through any MCP client)
 can search and cite it beside your other sources.
 
-**Status:** MVP (2026-11-26). Seed, fetch (arXiv metadata and HTML, NTRS, Crossref), build (SQLite FTS5 over
+**Status:** MVP (2026-11-26). Seed, fetch (arXiv metadata and HTML, NTRS, Crossref, web pages), build (SQLite FTS5 over
 section chunks), a local search and the read-only MCP server (`search`, `read`, `paper`) work, on the standard
 library alone. Also: PDF full text (`fulltext`), a Dockerfile, health, metrics and JSON logs. Not yet: embeddings, the retrieval evaluation, the weekly search. The design
 is [RFC-0001](docs/rfc/RFC-0001-the-library.md).
 
 ## What it is
 
-- **Tooling, not content.** This repo is the code: fetchers (arXiv, NASA NTRS, DOIs), text
+- **Tooling, not content.** This repo is the code: fetchers (arXiv, NASA NTRS, DOIs, web pages), text
   extraction, chunking, the index, the read server and a CLI. Your content lives in a repo of your
   own (private, if you like): the verticals you follow, their search topics, and one manifest per
   paper. Full texts are a derived cache, fetched again from each paper's versioned id.
@@ -42,11 +42,14 @@ sb serve  --data ~/sb-data [--host 127.0.0.1] [--port 8790] [--token-file F] [--
 request (a new build is served without a restart) and, with `--token-file`, answers 401 without the bearer token.
 `fulltext` is the second pass, run after `fetch`. For each cached text that is abstract only it looks for a legal open
 full text, in order: arXiv HTML (any year), the arXiv PDF; the NTRS record's PDF; for a DOI the open-access PDF OpenAlex
-lists, then Crossref's PDF links. No identity or e-mail is sent. A PDF is capped at 40 MB, must start with `%PDF`, is
+lists, then Crossref's PDF links; for a web page (id `url:<absolute http(s) URL>`, scheme and host
+lower-cased, fragment dropped) the page itself: HTML as sections, or a PDF by its `%PDF` bytes through the same PDF path, OCR
+included; a page with under 500 characters of text ends `thin_page` (its metadata comes from the seed; hosts are called a
+second apart). No identity or e-mail is sent. A PDF is capped at 40 MB, must start with `%PDF`, is
 split into sections on its headings (pages when fewer than two are found) and gets `source_kind` `pdf`. A PDF with a
 poor text layer (under 50 words a page, or mostly non-words) is read by OCR as well and the better text kept
 (`source_kind` `ocr`, at most 60 pages). Each text records in `fulltext` what was tried and why it ended where it did;
-a final outcome (paywalled, no PDF in NTRS, scanned, no open full text) is not tried again unless `--retry`, a fetch
+a final outcome (paywalled, no PDF in NTRS, scanned, thin page, no open full text) is not tried again unless `--retry`, a fetch
 error is. `status` reports the result per vertical.
 Tests: `make test`; `make lint`.
 

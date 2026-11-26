@@ -50,7 +50,7 @@ flowchart LR
         IDX["index: SQLite FTS5<br/>later embeddings"]
         MCP["read server: search, read, paper"]
     end
-    SRC["arXiv, NASA NTRS, DOIs"] --> BUILD
+    SRC["arXiv, NASA NTRS, DOIs, web pages"] --> BUILD
     MAN --> BUILD --> IDX --> MCP
     CLI --> MAN
     MCP --> AG["agents and MCP clients"]
@@ -63,7 +63,8 @@ flowchart LR
 - `verticals/<v>/topics.yaml`: the vertical's sub-topics, each with search queries (arXiv
   categories and terms, NTRS terms). A scheduler reads it to propose new papers.
 - `papers/<v>/<id>.json`: one manifest per paper: the versioned source id (`arxiv:2001.00001v3`,
-  `ntrs:20190000123`, `doi:...`), title, authors, year, sub-topic, tier (foundational or recent),
+  `ntrs:20190000123`, `doi:...`, or `url:<absolute http(s) URL>` for a web page with no other id; search
+  and `paper` show the URL as its link), title, authors, year, sub-topic, tier (foundational or recent),
   why it is in, and who decided (an approver and a reference, or "seeded").
 - **Texts are not in git.** They are derived: fetched again from the versioned id at build time and
   kept in the installation's corpus folder, backed up with its other volumes. A lost folder is

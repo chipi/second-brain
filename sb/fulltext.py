@@ -9,6 +9,7 @@ from .seed import load_manifests
 
 NTRS_HOST = "https://ntrs.nasa.gov"
 MAX_CANDIDATES = 4
+THIN_CHARS = 500
 OCR_NOTE = "text read by OCR (tesseract); expect recognition errors"
 NOTES = {"scanned": "scanned pdf, OCR found no text", "scanned_no_ocr_tool": "scanned, no OCR tool"}
 
@@ -21,6 +22,7 @@ OUTCOMES = {
     "no_open_fulltext": (True, "no open full text"),
     "scanned": (True, "scanned"),
     "pdf_unreadable": (True, "pdf unreadable"),
+    "thin_page": (True, "page had too little text"),
     "fetch_failed": (False, "fetch failed"),
 }
 
@@ -53,15 +55,15 @@ class _Run:
     def __init__(self, fetcher, doc, ocr):
         self.fetcher, self.doc, self.ocr, self.tried, self.transient = fetcher, doc, ocr, [], False
         self.sections, self.kind, self.url, self.ocr_info = None, None, None, None
-        self.scanned = self.no_tool = self.unreadable = self.no_pdf = False
+        self.scanned = self.no_tool = self.unreadable = self.no_pdf = self.thin = False
 
     def step(self, name, result):
         self.tried.append({"step": name, "result": result})
 
-    def get(self, name, url):
+    def get(self, name, url, **kw):
         """(status, body) or None; a miss is recorded."""
         try:
-            status, body = self.fetcher.get(url)
+            status, body = self.fetcher.get(url, **kw)
         except FetchError as e:
             self.transient = True
             self.step(name, f"fetch error: {e}")
@@ -94,11 +96,13 @@ class _Run:
         self.step("arxiv-html", f"ok, {len(secs)} sections")
         return True
 
-    def pdf(self, name, url):
-        got = self.get(name, url)
+    def pdf(self, name, url, **kw):
+        got = self.get(name, url, **kw)
         if got is None:
             return False
-        body = got[1]
+        return self.pdf_body(name, url, got[1])
+
+    def pdf_body(self, name, url, body):
         if len(body) > MAX_BODY:
             self.step(name, "pdf over the size cap")
             return False
@@ -142,6 +146,31 @@ def _arxiv(r, m):
     return r.html(vid) or r.pdf("arxiv-pdf", f"https://arxiv.org/pdf/{vid}")
 
 
+def _url(r, m):
+    url = ids.bare(m["id"])
+    if not ids.is_url(url):
+        r.step("page", "not an absolute http(s) URL")
+        return False
+    got = r.get("page", url, page=True)
+    if got is None:
+        return False
+    body = got[1]
+    if len(body) > MAX_BODY:
+        r.step("page", "page over the size cap")
+        return False
+    if body.lstrip()[:5].startswith(b"%PDF"):
+        return r.pdf_body("page-pdf", url, body)
+    secs = htmltext.sections(body.decode("utf-8", "replace"))
+    chars = sum(len(s["text"]) for s in secs)
+    if chars < THIN_CHARS:
+        r.thin = True
+        r.step("page", f"thin: {chars} chars of text in {len(secs)} sections")
+        return False
+    r.sections, r.kind, r.url = secs, "html", url
+    r.step("page", f"ok, {len(secs)} sections, {chars} chars")
+    return True
+
+
 def _ntrs(r, m):
     rec = r.json_get("ntrs-record", "https://ntrs.nasa.gov/api/citations/" + ids.bare(m["id"]), lambda b: {"link": ntrs_pdf_link(b)})
     if rec is None:
@@ -172,7 +201,7 @@ def upgrade_one(m, doc, fetcher, ocr=None):
     """(new doc, outcome) for one abstract-only text; the doc carries a `fulltext` record whatever the outcome."""
     k = ids.kind(m["id"])
     r = _Run(fetcher, doc, ocr)
-    ok = {"arxiv": _arxiv, "ntrs": _ntrs, "doi": _doi}.get(k, lambda r, m: r.step("id", f"no full-text route for {k!r}") or False)(r, m)
+    ok = {"arxiv": _arxiv, "ntrs": _ntrs, "doi": _doi, "url": _url}.get(k, lambda r, m: r.step("id", f"no full-text route for {k!r}") or False)(r, m)
     if ok:
         outcome = r.kind
     elif r.scanned:
@@ -183,6 +212,8 @@ def upgrade_one(m, doc, fetcher, ocr=None):
         outcome = "fetch_failed"
     elif r.unreadable:
         outcome = "pdf_unreadable"
+    elif r.thin:
+        outcome = "thin_page"
     elif r.no_pdf:
         outcome = "no_pdf_in_ntrs"
     elif k == "doi":

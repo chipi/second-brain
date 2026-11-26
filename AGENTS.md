@@ -30,6 +30,6 @@ their text, index it, serve it read-only over MCP. Design:
 3. **The MCP tools are a contract.** `search`, `read` and `paper` keep their names and fields; a
    change is versioned and noted in the changelog, since other repos call them.
 4. **Every paper is identified by a versioned source id** (`arxiv:<id>v<n>`, `ntrs:<id>`,
-   `doi:<doi>`), so a text can be fetched again and a citation stays exact.
+   `doi:<doi>`, `url:<url>`), so a text can be fetched again and a citation stays exact.
 5. **Nothing is added without a manifest,** and a manifest says why the paper is in and who
    decided.

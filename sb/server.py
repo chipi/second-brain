@@ -16,7 +16,7 @@ LOG = logging.getLogger("sb.server")
 UNAUTHENTICATED = ("/healthz", "/metrics")
 
 TOOLS = [
-    {"name": "search", "description": "Full-text (BM25) search over the library's paper chunks. Returns the best chunks with paper id, title, year, section, snippet, score and index version.",
+    {"name": "search", "description": "Full-text (BM25) search over the library's paper chunks. Returns the best chunks with paper id, title, year, section, snippet, score and index version (and the page's url for a url: paper).",
      "inputSchema": {"type": "object", "properties": {
          "query": {"type": "string", "description": "words to search for"},
          "vertical": {"type": "string", "description": "limit to one vertical"},

@@ -62,8 +62,12 @@ class Index:
         sql += " ORDER BY score LIMIT ?"
         args.append(k)
         rows = self.db.execute(sql, args).fetchall()
-        return [{"paper": r["paper"], "title": r["title"], "year": r["year"], "section": r["section"],
-                 "snippet": r["snip"], "score": round(-r["score"], 4), "index_version": self.version} for r in rows]
+        out = [{"paper": r["paper"], "title": r["title"], "year": r["year"], "section": r["section"],
+                "snippet": r["snip"], "score": round(-r["score"], 4), "index_version": self.version} for r in rows]
+        for o in out:
+            if ids.kind(o["paper"]) == "url":
+                o["url"] = ids.bare(o["paper"])
+        return out
 
     def _paper_row(self, pid):
         if not isinstance(pid, str) or not pid.strip():
