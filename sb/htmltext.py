@@ -38,6 +38,8 @@ class _Parser(HTMLParser):
         if tag in VOID:
             return
         a = dict(attrs)
+        if self._skip == "head" and tag == "body":
+            self._skip = None  # </head> is optional in HTML; the body's start ends the head
         if self._skip:
             if tag == self._skip:
                 self._skip_depth += 1

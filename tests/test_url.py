@@ -6,7 +6,7 @@ import unittest
 
 import support
 from pdffix import make_pdf
-from sb import build, fetch, fulltext, ids, report, seed, store
+from sb import build, fetch, fulltext, htmltext, ids, report, seed, store
 from test_fetch import Clock, FakeHttp
 from test_fulltext import BODY, PAPER, SCAN, FakeOcr, needs_pypdf
 
@@ -41,6 +41,13 @@ class Ids(unittest.TestCase):
             self.assertTrue(ids.is_url(ok), ok)
         for bad in ("example.org/a", "file:///etc/passwd", "ftp://example.org/a", "https:///a", "/a"):
             self.assertFalse(ids.is_url(bad), bad)
+
+
+class HtmlWithoutHeadEnd(unittest.TestCase):
+    def test_a_page_whose_head_has_no_end_tag_still_has_its_body_text(self):
+        # </head> is optional in HTML; the body's start tag ends the head
+        page = "<!DOCTYPE html><html><head><title>T</title><meta charset=utf-8><body><h2>Plan</h2><p>Body text of a page.</p></body></html>"
+        self.assertEqual(htmltext.sections(page), [{"title": "Plan", "text": "Body text of a page."}])
 
 
 class Base(unittest.TestCase):
