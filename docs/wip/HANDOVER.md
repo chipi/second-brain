@@ -148,3 +148,32 @@ embeddings and the retrieval evaluation (RFC-0001 §5); the installation's deplo
 decision 2); flotilla's `library/watch` and an `sb add`; `topics.yaml` per vertical; fetching all 572 papers (not
 run: about 470 arXiv HTML pages at 1 s each plus 12 API batches at 3 s); NTRS date handling for records without a
 publication date; pruning old `index-*` folders (builds only add).
+
+## Operating it on the installation (2026-11-26)
+
+What this repo provides, built to the installation's observability conventions (stdout to VictoriaLogs, Prometheus text to
+VictoriaMetrics); the README's "Running it" has the full lists.
+
+| Piece | Here |
+| --- | --- |
+| Images | `Dockerfile`, targets `serve` (python, pypdf) and `build` (adds poppler, tesseract-ocr-eng); `python:3.13-slim` by digest, uid 10001, read-only root compatible (writes only `/data` and `/tmp`), `ENTRYPOINT python -m sb` |
+| Read server | `sb serve --data /data --host 0.0.0.0`: `/mcp` (bearer token with `--token-file`), `/healthz`, `/metrics` (both unauthenticated, internal network only) |
+| Logs | JSON lines on stdout under `serve` (`_msg`, `level`, `ts`, `logger`, request fields, `trace_id` from `traceparent`); never the token |
+| Metrics | `/metrics` (requests, latency histogram, index size and build time, up); `--metrics-file` on `build`, `fetch`, `fulltext`; `scripts/push_metrics.sh FILE URL` |
+
+What homelab builds and decides:
+
+- The image build and its tags; the compose service `sb-mcp` on the internal docker network (no published port; flotilla's
+  reads worker reaches it by name), `/data` mounted read-only, a token file as a secret if the network is shared.
+- The weekly build container: the content repo checked out and mounted at `/content`, the data volume mounted read-write (the
+  same volume the server mounts read-only; a build swaps `current` atomically, the server re-resolves it per request), then
+  `fetch`, `fulltext`, `build` each with `--metrics-file`, then `push_metrics.sh` for each file. `fetch` and `fulltext` exit 1
+  when a paper failed; the files are written before that exit.
+- The scrape job for `sb-mcp:8790/metrics`, the alerts (suggested: `time() - sb_build_last_success_timestamp_seconds` over
+  8 days; `sb_index_built_timestamp_seconds` age; `increase(sb_requests_total{status="error"}[15m]) > 0`; `up`), the dashboard,
+  the log-based error alert, and the container healthcheck's use (the image already has one on `/healthz`).
+
+Checked here on the dev engine: both targets build; the `serve` image run with `--read-only`, the data mounted `:ro`, answered
+`/healthz`, `/metrics` and a `tools/call` search over a fixture index, with the `trace_id` in its log line; the `build` image ran
+`build --metrics-file` read-only. Not checked: the installation's network, VictoriaMetrics' import of the file, a real
+(572-paper) index's scrape cost (the count queries run per scrape), a traced client other than curl.

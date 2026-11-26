@@ -1,14 +1,19 @@
 import argparse
+import glob
 import json
+import logging
+import os
 import sys
 
 from . import build as build_mod
-from . import report
+from . import obs, report
 from . import seed as seed_mod
 from .fetch import Fetcher, fetch_all
 from .fulltext import fulltext_all
 from .pdftext import PdfUnavailable
 from .store import BadInput, Index, NotFound
+
+LOG = logging.getLogger("sb.cli")
 
 
 def _search(a):
@@ -28,7 +33,8 @@ def _search(a):
 def _serve(a):
     from .server import make_server
     srv = make_server(a.data, a.host, a.port, a.token_file)
-    print(f"serving http://{a.host}:{srv.server_address[1]}/mcp (read-only{', bearer token' if a.token_file else ''})", flush=True)
+    obs.log(LOG, logging.INFO, f"serving http://{a.host}:{srv.server_address[1]}/mcp (read-only{', bearer token' if a.token_file else ''})",
+            host=a.host, port=srv.server_address[1], auth=bool(a.token_file), log_format=a.log_format)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
@@ -36,20 +42,53 @@ def _serve(a):
     return 0
 
 
+def _progress(a):
+    """Where a long command's per-paper lines go: stdout as they are, or one JSON log line each."""
+    if a.log_format == "json":
+        return lambda m: obs.log(LOG, logging.INFO, m)
+    return lambda m: print(m, flush=True)
+
+
+def _result(a, stats):
+    """The command's final stats: the JSON object on stdout, or a JSON log line carrying them."""
+    if a.log_format == "json":
+        obs.log(LOG, logging.INFO, f"{a.cmd} done", **stats)
+    else:
+        print(json.dumps(stats))
+
+
+def _text_kinds(data):
+    kinds = {}
+    for p in glob.glob(os.path.join(data, "texts", "*.json")):
+        with open(p, encoding="utf-8") as f:
+            k = json.load(f).get("source_kind") or "unknown"
+        kinds[k] = kinds.get(k, 0) + 1
+    return kinds
+
+
+def _metrics_file(a, families):
+    if a.metrics_file:
+        obs.write_metrics_file(a.metrics_file, families)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="sb")
     sub = p.add_subparsers(dest="cmd", required=True)
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--log-format", choices=("text", "json"), help="text (default; json under serve): the log lines on stdout")
+    mfile = argparse.ArgumentParser(add_help=False)
+    mfile.add_argument("--metrics-file", help="write the run's outcome here as a Prometheus text file")
 
     s = sub.add_parser("seed", help="write one manifest per seed entry into CONTENT/papers")
     s.add_argument("--content", required=True)
 
-    s = sub.add_parser("fetch", help="fetch metadata and text for manifests without a cached text")
+    s = sub.add_parser("fetch", parents=[common, mfile], help="fetch metadata and text for manifests without a cached text")
     s.add_argument("--content", required=True)
     s.add_argument("--data", required=True)
     s.add_argument("--limit", type=int)
     s.add_argument("--only", action="append", help="an id to fetch (repeatable)")
 
-    s = sub.add_parser("fulltext", help="upgrade abstract-only texts with an open HTML or PDF full text, recording what was tried")
+    s = sub.add_parser("fulltext", parents=[common, mfile], help="upgrade abstract-only texts with an open HTML or PDF full text, recording what was tried")
     s.add_argument("--content", required=True)
     s.add_argument("--data", required=True)
     s.add_argument("--limit", type=int)
@@ -61,7 +100,7 @@ def main(argv=None):
     s.add_argument("--data", required=True)
     s.add_argument("--json", action="store_true")
 
-    s = sub.add_parser("build", help="build the FTS5 index and point DATA/current at it")
+    s = sub.add_parser("build", parents=[common, mfile], help="build the FTS5 index and point DATA/current at it")
     s.add_argument("--content", required=True)
     s.add_argument("--data", required=True)
     s.add_argument("--version", help="override the content commit used as the index's name")
@@ -72,34 +111,41 @@ def main(argv=None):
     s.add_argument("--vertical")
     s.add_argument("-k", type=int, default=8)
 
-    s = sub.add_parser("serve", help="the read-only MCP server at /mcp")
+    s = sub.add_parser("serve", parents=[common], help="the read-only MCP server at /mcp, with /healthz and /metrics")
     s.add_argument("--data", required=True)
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8790)
     s.add_argument("--token-file")
 
     a = p.parse_args(argv)
+    if hasattr(a, "log_format"):
+        a.log_format = a.log_format or ("json" if a.cmd == "serve" else "text")
+        obs.configure_logging(a.log_format)
     if a.cmd == "seed":
         print(json.dumps(seed_mod.seed(a.content)))
         return 0
     if a.cmd == "fetch":
-        stats = fetch_all(a.content, a.data, Fetcher(log=lambda m: print(m, flush=True)), a.limit, a.only)
-        print(json.dumps(stats))
+        stats = fetch_all(a.content, a.data, Fetcher(log=_progress(a)), a.limit, a.only)
+        _result(a, stats)
+        _metrics_file(a, obs.fetch_families(stats))
         return 1 if stats["failed"] else 0
     if a.cmd == "fulltext":
         try:
-            stats = fulltext_all(a.content, a.data, Fetcher(log=lambda m: print(m, flush=True)), a.limit, a.only, a.retry)
+            stats = fulltext_all(a.content, a.data, Fetcher(log=_progress(a)), a.limit, a.only, a.retry)
         except PdfUnavailable as e:
             print(f"sb: {e}", file=sys.stderr)
             return 2
-        print(json.dumps(stats))
+        _result(a, stats)
+        _metrics_file(a, obs.fulltext_families(stats, _text_kinds(a.data)))
         return 1 if stats["failed"] else 0
     if a.cmd == "status":
         st = report.status(a.content, a.data)
         print(json.dumps(st, indent=1) if a.json else report.render(st))
         return 0
     if a.cmd == "build":
-        print(json.dumps(build_mod.build(a.content, a.data, a.version)))
+        stats = build_mod.build(a.content, a.data, a.version)
+        _result(a, stats)
+        _metrics_file(a, obs.build_families(stats))
         return 0
     if a.cmd == "search":
         return _search(a)

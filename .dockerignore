@@ -1,0 +1,12 @@
+.git
+.venv
+.impeccable
+**/__pycache__
+**/*.pyc
+tests
+docs
+scripts
+bin
+Makefile
+*.md
+.gitignore

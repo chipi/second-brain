@@ -1,8 +1,10 @@
 """Read side of an index: what the CLI and the MCP server both call. Opens the index read-only."""
+import calendar
 import json
 import os
 import re
 import sqlite3
+import time
 
 from . import ids
 
@@ -29,6 +31,16 @@ class Index:
 
     def close(self):
         self.db.close()
+
+    def stats(self):
+        """Counts and build time for the metrics; built_at is Unix seconds, or None when the index does not say."""
+        one = lambda sql: self.db.execute(sql).fetchone()[0]
+        built = self.db.execute("SELECT value FROM meta WHERE key='built_at'").fetchone()
+        try:
+            at = calendar.timegm(time.strptime(built[0], "%Y-%m-%dT%H:%M:%SZ")) if built else None
+        except ValueError:
+            at = None
+        return {"version": self.version, "papers": one("SELECT count(*) FROM papers"), "chunks": one("SELECT count(*) FROM chunks"), "built_at": at}
 
     def search(self, query, vertical=None, k=8):
         if not isinstance(query, str) or not query.strip():
