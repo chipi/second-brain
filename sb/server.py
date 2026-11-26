@@ -186,6 +186,12 @@ def make_server(data, host="127.0.0.1", port=8790, token_file=None):
             if self.command != "HEAD":
                 self.wfile.write(body)
 
+        def _refuse(self, code, status, started, headers=()):
+            """Log and count first, then answer: once the client has its answer, the line and the counter are there."""
+            self._code = code
+            self._observe("none", status, started)
+            self._send(code, b"", None, headers)
+
         def _json(self, code, obj, headers=()):
             self._send(code, json.dumps(obj, ensure_ascii=False).encode(), "application/json", headers)
 
@@ -201,12 +207,10 @@ def make_server(data, host="127.0.0.1", port=8790, token_file=None):
 
         def _gate(self, started):
             if self.path.split("?")[0] != "/mcp":
-                self._send(404)
-                self._observe("none", "not_found", started)
+                self._refuse(404, "not_found", started)
                 return False
             if not self._authorised():
-                self._send(401, b"", None, [("WWW-Authenticate", "Bearer")])
-                self._observe("none", "unauthorized", started)
+                self._refuse(401, "unauthorized", started, [("WWW-Authenticate", "Bearer")])
                 return False
             return True
 
@@ -215,11 +219,12 @@ def make_server(data, host="127.0.0.1", port=8790, token_file=None):
             try:
                 fn()
             except Exception as e:
+                self._code = 500
+                self._observe("none", "error", started, {"error_type": type(e).__name__, "error": str(e)[:300], "traceback": obs.short_traceback(e)})
                 try:
                     self._send(500)
                 except OSError:
                     pass
-                self._observe("none", "error", started, {"error_type": type(e).__name__, "error": str(e)[:300], "traceback": obs.short_traceback(e)})
 
         def do_POST(self):
             started = time.perf_counter()
@@ -231,24 +236,22 @@ def make_server(data, host="127.0.0.1", port=8790, token_file=None):
             try:
                 n = int(self.headers.get("Content-Length") or 0)
             except ValueError:
-                self._send(400)
-                return self._observe("none", "bad_request", started)
+                return self._refuse(400, "bad_request", started)
             if n > MAX_REQUEST:
-                self._send(413)
-                return self._observe("none", "bad_request", started)
+                return self._refuse(413, "bad_request", started)
             raw = self.rfile.read(n)
             try:
                 msg = json.loads(raw)
             except ValueError:
-                self._json(400, {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}})
-                return self._observe("none", "bad_request", started)
+                self._code = 400
+                self._observe("none", "bad_request", started)
+                return self._json(400, {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}})
             sid = self.headers.get("Mcp-Session-Id")
             is_init = isinstance(msg, dict) and msg.get("method") == "initialize"
             with lock:
                 known = sid in sessions
             if sid and not known and not is_init:
-                self._send(404)
-                return self._observe("none", "not_found", started)
+                return self._refuse(404, "not_found", started)
             outs, new_sid = [], None
             for m in msg if isinstance(msg, list) else [msg]:
                 t0, info = time.perf_counter(), {}
@@ -292,8 +295,7 @@ def make_server(data, host="127.0.0.1", port=8790, token_file=None):
             if path in UNAUTHENTICATED:
                 return self._guarded(started, self._healthz if path == "/healthz" else self._metrics)
             if self._gate(started):
-                self._send(405, b"", None, [("Allow", "POST, DELETE")])
-                self._observe("none", "bad_request", started)
+                self._refuse(405, "bad_request", started, [("Allow", "POST, DELETE")])
 
         def do_DELETE(self):
             started = time.perf_counter()
@@ -301,8 +303,9 @@ def make_server(data, host="127.0.0.1", port=8790, token_file=None):
                 return
             with lock:
                 sessions.discard(self.headers.get("Mcp-Session-Id"))
-            self._send(204)
+            self._code = 204
             self._observe("none", "ok", started)
+            self._send(204)
 
     srv = ThreadingHTTPServer((host, port), H)
     srv.daemon_threads = True

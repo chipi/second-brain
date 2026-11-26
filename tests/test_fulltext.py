@@ -137,6 +137,21 @@ class PdfToSections(unittest.TestCase):
         secs, info = pdftext.extract(make_pdf(SCAN))
         self.assertEqual((secs, info["scanned"]), ([], True))
 
+    @needs_pypdf
+    def test_a_pdf_pypdf_refuses_is_read_by_poppler(self):
+        self.assertEqual(pdftext.page_texts(b"%PDF-1.4 not really", fallback=lambda body: ["one", "two"]), ["one", "two"])
+        with self.assertRaises(pdftext.PdfError):
+            pdftext.page_texts(b"%PDF-1.4 not really", fallback=lambda body: None)
+
+    def test_poppler_pages_splits_on_form_feeds(self):
+        done = subprocess.CompletedProcess([], 0, stdout="page one\fpage two\f".encode())
+        self.assertEqual(pdftext.poppler_pages(b"%PDF", run=lambda *a, **k: done, which=lambda n: "/usr/bin/" + n), ["page one", "page two"])
+        self.assertIsNone(pdftext.poppler_pages(b"%PDF", which=lambda n: None))
+
+        def fails(*a, **k):
+            raise subprocess.CalledProcessError(1, a[0])
+        self.assertIsNone(pdftext.poppler_pages(b"%PDF", run=fails, which=lambda n: "/usr/bin/" + n))
+
     def test_garbage_is_a_pdf_error(self):
         with self.assertRaises(pdftext.PdfError):
             pdftext.extract(b"%PDF-1.4 not really")

@@ -38,7 +38,26 @@ def clean(text):
     return "\n".join(ln for ln in text.splitlines() if not re.fullmatch(r"\s*\d{1,4}\s*", ln))
 
 
-def page_texts(body):
+def poppler_pages(body, run=subprocess.run, which=shutil.which, timeout=180):
+    """poppler's pdftotext, one text per page (it ends each page with a form feed); None when it is not installed or fails."""
+    if not which("pdftotext"):
+        return None
+    with tempfile.TemporaryDirectory(prefix="sb-pdf-") as tmp:
+        src = os.path.join(tmp, "in.pdf")
+        with open(src, "wb") as f:
+            f.write(body)
+        try:
+            r = run(["pdftotext", "-enc", "UTF-8", src, "-"], capture_output=True, timeout=timeout, check=True)
+        except (subprocess.SubprocessError, OSError):
+            return None
+    pages = r.stdout.decode("utf-8", "replace").split("\f")
+    if pages and not pages[-1].strip():
+        pages.pop()
+    return pages or None
+
+
+def page_texts(body, fallback=poppler_pages):
+    """pypdf's text per page; when pypdf cannot read the file (its safety limits on a huge content stream, a broken xref), poppler's."""
     try:
         import logging
         from pypdf import PdfReader
@@ -49,7 +68,11 @@ def page_texts(body):
         reader = PdfReader(io.BytesIO(body), strict=False)
         return [p.extract_text() or "" for p in reader.pages]
     except Exception as e:
-        raise PdfError(f"{type(e).__name__}: {e}") from None
+        err = PdfError(f"{type(e).__name__}: {e}")
+    pages = fallback(body) if fallback else None
+    if pages is None:
+        raise err
+    return pages
 
 
 def is_scanned(pages):
