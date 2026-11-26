@@ -111,7 +111,39 @@ Smoke run (6 real papers: 2 arXiv with HTML, 2 without, 1 NTRS, 1 DOI): fetch 0 
 678 chunks, search and `tools/list` over curl worked. Crossref had no abstract for the DOI paper, so it is
 indexed by title only.
 
-Left: PDF text (the allowed dependency; the seed's `html: false` older papers are abstract-only until then);
+### Full-text upgrade (2026-11-26)
+
+`sb fulltext --content DIR --data DIR [--limit N] [--only ID] [--retry]` (a separate command, not a `fetch` flag, so `fetch`
+stays the metadata pass and `fulltext` can be re-run alone) and `sb status [--json]`. Code: `sb/fulltext.py` (sources and
+outcomes), `sb/pdftext.py` (pypdf text, headings, OCR), `sb/report.py`. pypdf 7.1.1 is pinned in `requirements.txt` (chosen by
+measurement against pdfminer.six on 7 PDFs: same word yield, 2-4x faster, BSD, no dependencies) and imported only when a PDF is read.
+
+For each text whose `source_kind` is not html/pdf/ocr, in order: arXiv HTML of the versioned id for any year, arXiv PDF (3 s
+gap); NTRS `downloads[].links.pdf`; DOI: OpenAlex `best_oa_location.pdf_url`, `open_access.oa_url`, other locations' PDFs (at
+most 4 tried), then Crossref `link` entries with `application/pdf`. A PDF must start with `%PDF` and be under 40 MB.
+Sections: numbered headings (`1 Intro`, `2.1 ...`, accepted only in sequence), roman and all-caps ones, and a short list of
+plain ones (Abstract, Introduction, Methods, Results, Discussion, Conclusion, References, Acknowledgements, Appendix); pages
+(`page N`) when fewer than two are found; text before the first heading is `Front matter`; References stays its own section;
+an Abstract section is dropped when the source already gave an abstract. Hyphenated line breaks are joined (a hyphen is kept
+before `to`, `and`, `of`...), pypdf's `/f_i`-style and Unicode ligatures are fixed.
+OCR: when the text layer is under 50 words a page over more than 2 pages (or under 30 words in all), or under 60% of its tokens
+look like words (2-24 letters, a vowel, no run of 6 consonants), `pdftoppm -r 300` and `tesseract -l eng` read the first 60 pages
+and the text with more real words is kept (`source_kind` `ocr`, a `note`, `fulltext.ocr` with the counts and whether the cap
+applied). No tool installed: outcome `scanned_no_ocr_tool`, not final, retried automatically once they are.
+
+Every run writes `fulltext` into the text: `outcome` (html, pdf, ocr, paywalled, no_pdf_in_ntrs, no_open_fulltext, scanned,
+scanned_no_ocr_tool, pdf_unreadable, fetch_failed), `final`, `tried` (step and result), `at`. Final outcomes are skipped on re-run
+unless `--retry`; `fetch_failed` (network error, 5xx) is not final. `sb status` groups abstract-only papers by these reasons.
+
+Coverage limits. A DOI with no open copy, or one whose OA link is a landing page, stays abstract-only ("paywalled": it means no
+open PDF was reachable, not proof of a paywall). arXiv papers with neither HTML nor PDF (withdrawn) end `no_open_fulltext`.
+Heading detection is heuristic: running headers, table rows and two-column footnotes can become a stray section or be merged into
+the previous one (seen: `2 Dario Izzo` from a running header); appendices lettered `A`, `B` are not detected unless titled
+`Appendix`; equations come out as plain text; two-column reading order is pypdf's. `fine-\ntuning` becomes `finetuning`. OCR is
+English only and slow (about 1.5 s a page here); a PDF over 60 pages is OCRed for the first 60 only. Measured on a 1969 NTRS report
+with a legacy OCR layer: the layer was kept (812 real words vs 809 from tesseract), so the trigger cost 16 s and gained nothing.
+
+Left: running `sb fulltext` over the whole library (not run);
 embeddings and the retrieval evaluation (RFC-0001 §5); the installation's deploy and where it runs (RFC-0001 §7
 decision 2); flotilla's `library/watch` and an `sb add`; `topics.yaml` per vertical; fetching all 572 papers (not
 run: about 470 arXiv HTML pages at 1 s each plus 12 API batches at 3 s); NTRS date handling for records without a

@@ -28,7 +28,7 @@ class Http:
         req = urllib.request.Request(url, headers={"User-Agent": UA})
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
-                return r.status, r.read(MAX_BODY), r.headers
+                return r.status, r.read(MAX_BODY + 1), r.headers
         except urllib.error.HTTPError as e:
             try:
                 return e.code, e.read(1 << 20), e.headers
@@ -39,9 +39,10 @@ class Http:
 
 
 class Fetcher:
-    def __init__(self, http=None, sleep=time.sleep, clock=time.monotonic, api_gap=3.0, html_gap=1.0, log=lambda m: None):
+    def __init__(self, http=None, sleep=time.sleep, clock=time.monotonic, api_gap=3.0, html_gap=1.0, pdf_gap=3.0, log=lambda m: None):
         self.http, self.sleep, self.clock, self.log = http or Http(), sleep, clock, log
-        self.gaps = {"export.arxiv.org": api_gap, "arxiv.org": html_gap}
+        self.gaps = {"export.arxiv.org": api_gap, "arxiv.org": html_gap, "ntrs.nasa.gov": 1.0}
+        self.pdf_gap = pdf_gap
         self.last = {}
 
     def get(self, url):
@@ -51,6 +52,8 @@ class Fetcher:
                 self.log(f"429 from {host}: waiting {wait}s")
                 self.sleep(wait)
             gap = self.gaps.get(host)
+            if host == "arxiv.org" and urllib.parse.urlsplit(url).path.startswith("/pdf/"):
+                gap = self.pdf_gap
             if gap and host in self.last:
                 left = gap - (self.clock() - self.last[host])
                 if left > 0:

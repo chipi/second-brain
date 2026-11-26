@@ -16,6 +16,7 @@ their text, index it, serve it read-only over MCP. Design:
 | Language | Python, standard library first | small, auditable, no framework |
 | Index | SQLite FTS5 (BM25) | in the standard library; embeddings only after an evaluation asks for them |
 | PDF text | one PDF-to-text library, pinned | the operator allowed it (2026-11-26); chosen by measurement (RFC-0001 §3.2) |
+| OCR | `pdftoppm` (poppler) and `tesseract`, system binaries called by subprocess; optional | the operator allowed it (2026-11-26); no Python package |
 | Read server | MCP, streamable HTTP | what flotilla's live reads and other clients speak |
 | Tests | `unittest` | standard library |
 

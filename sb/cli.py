@@ -3,8 +3,11 @@ import json
 import sys
 
 from . import build as build_mod
+from . import report
 from . import seed as seed_mod
 from .fetch import Fetcher, fetch_all
+from .fulltext import fulltext_all
+from .pdftext import PdfUnavailable
 from .store import BadInput, Index, NotFound
 
 
@@ -46,6 +49,18 @@ def main(argv=None):
     s.add_argument("--limit", type=int)
     s.add_argument("--only", action="append", help="an id to fetch (repeatable)")
 
+    s = sub.add_parser("fulltext", help="upgrade abstract-only texts with an open HTML or PDF full text, recording what was tried")
+    s.add_argument("--content", required=True)
+    s.add_argument("--data", required=True)
+    s.add_argument("--limit", type=int)
+    s.add_argument("--only", action="append", help="an id to upgrade (repeatable)")
+    s.add_argument("--retry", action="store_true", help="also retry papers whose last outcome was final (paywalled, scanned, ...)")
+
+    s = sub.add_parser("status", help="what the library holds, why papers are abstract only, and whether the index is stale")
+    s.add_argument("--content", required=True)
+    s.add_argument("--data", required=True)
+    s.add_argument("--json", action="store_true")
+
     s = sub.add_parser("build", help="build the FTS5 index and point DATA/current at it")
     s.add_argument("--content", required=True)
     s.add_argument("--data", required=True)
@@ -71,6 +86,18 @@ def main(argv=None):
         stats = fetch_all(a.content, a.data, Fetcher(log=lambda m: print(m, flush=True)), a.limit, a.only)
         print(json.dumps(stats))
         return 1 if stats["failed"] else 0
+    if a.cmd == "fulltext":
+        try:
+            stats = fulltext_all(a.content, a.data, Fetcher(log=lambda m: print(m, flush=True)), a.limit, a.only, a.retry)
+        except PdfUnavailable as e:
+            print(f"sb: {e}", file=sys.stderr)
+            return 2
+        print(json.dumps(stats))
+        return 1 if stats["failed"] else 0
+    if a.cmd == "status":
+        st = report.status(a.content, a.data)
+        print(json.dumps(st, indent=1) if a.json else report.render(st))
+        return 0
     if a.cmd == "build":
         print(json.dumps(build_mod.build(a.content, a.data, a.version)))
         return 0

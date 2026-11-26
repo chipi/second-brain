@@ -1,3 +1,5 @@
 #!/bin/sh
 here=$(cd "$(dirname "$0")/.." && pwd)
-PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m sb "$@"
+py=python3
+[ -x "$here/.venv/bin/python" ] && py="$here/.venv/bin/python"
+PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" exec "$py" -m sb "$@"
