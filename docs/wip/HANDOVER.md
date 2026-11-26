@@ -86,3 +86,33 @@ against a stub MCP server; the two meet at this repo's three tools. The MVP:
   returned empty bodies.
 - Crossref sometimes returns a short title ("Dynamo", "MapReduce"); keep the full title in the
   manifest and the DOI as the id.
+
+## Built in the MVP (2026-11-26)
+
+What exists (package `sb/`, standard library only, 43 unit tests in `tests/`, `make test` and `make lint`):
+
+| Command | What it does |
+| --- | --- |
+| `sb seed --content DIR` | one flat `papers/<safe-id>.json` per seed entry (572 for 578 entries: 6 ids sit in two lists and merge into `verticals`, `subtopics` and `why`, each per vertical); idempotent; an existing `approver` is kept; `tier` and `first_author` are dropped (see the caveats above); the seed's `html` flag is kept in the manifest because `fetch` needs it |
+| `sb fetch --content DIR --data DIR [--limit N] [--only ID]` | `DATA/texts/<safe-id>.json`: arXiv metadata in batches of 50, 3 s apart, 429 backoff (20, 40, 80, 160 s); HTML full text by section where the seed said `html: true` and the page parses (else the abstract, with a `note`); NTRS and Crossref abstracts; `versioned_id` records the arXiv version; failures in `DATA/failures.json` |
+| `sb build --content DIR --data DIR` | `DATA/index-<content short sha>[-n]/library.sqlite` (FTS5, porter stemming, BM25), then `DATA/current` swapped by an atomic symlink rename. A manifest without a text is indexed by title only |
+| `sb search "q" --data DIR [--vertical v] [-k N]` | the same code the server calls |
+| `sb serve --data DIR [--host] [--port 8790] [--token-file F]` | MCP over streamable HTTP at `/mcp`, JSON answers, `Mcp-Session-Id`, protocols 2025-06-18 and 2025-03-26, read-only index |
+
+Contract notes. Tool results carry the payload as JSON text in `content[0].text` and again as `structuredContent`.
+A bad argument is a JSON-RPC error (-32602); an unknown paper or section is a result with `isError: true`.
+`read` finds a section by exact title, number or unique substring. A query is turned into quoted words joined by
+OR, so FTS5 syntax in a question cannot break it. Ids are the seed's unversioned form (`arxiv:2310.06770`); the
+versioned id is in `paper`'s `versioned_id` once a text is fetched (AGENTS.md rule 4 is met only after a fetch).
+`tests/test_index_server.py` has a flotilla-client interop test, skipped unless `SB_FLOTILLA_RUNTIME` names
+flotilla's `runtime/` directory.
+
+Smoke run (6 real papers: 2 arXiv with HTML, 2 without, 1 NTRS, 1 DOI): fetch 0 failures, build 572 papers and
+678 chunks, search and `tools/list` over curl worked. Crossref had no abstract for the DOI paper, so it is
+indexed by title only.
+
+Left: PDF text (the allowed dependency; the seed's `html: false` older papers are abstract-only until then);
+embeddings and the retrieval evaluation (RFC-0001 §5); the installation's deploy and where it runs (RFC-0001 §7
+decision 2); flotilla's `library/watch` and an `sb add`; `topics.yaml` per vertical; fetching all 572 papers (not
+run: about 470 arXiv HTML pages at 1 s each plus 12 API batches at 3 s); NTRS date handling for records without a
+publication date; pruning old `index-*` folders (builds only add).

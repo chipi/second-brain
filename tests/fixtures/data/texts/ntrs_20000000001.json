@@ -1,0 +1,6 @@
+{
+ "id": "ntrs:20000000001", "versioned_id": "ntrs:20000000001", "title": "A Universal Variable Solution of the Two-Body Boundary Problem",
+ "authors": ["C. Test"], "year": 1970,
+ "abstract": "A universal variable formulation solves the two-point boundary value problem of orbital mechanics for elliptic, parabolic and hyperbolic transfers with one iteration.",
+ "sections": [], "source_kind": "abstract", "abstract_only": true, "fetched_at": "2026-11-26T00:00:00Z"
+}

@@ -1,0 +1,10 @@
+{
+ "id": "arxiv:2002.00002", "versioned_id": "arxiv:2002.00002v1", "title": "Repair Agents with Tool Use",
+ "authors": ["Bo Sample"], "year": 2021,
+ "abstract": "An agent that fixes failing tests by calling a compiler, a test runner and a code search tool outperforms a single-shot model.",
+ "sections": [
+  {"title": "1 Introduction", "text": "Automated program repair has moved from templates to language models that call tools."},
+  {"title": "2 Agent loop", "text": "The agent reads the failing test, searches the repository, proposes a patch and runs the tests again until they pass or a budget ends."}
+ ],
+ "source_kind": "html", "abstract_only": false, "fetched_at": "2026-11-26T00:00:00Z"
+}

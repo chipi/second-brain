@@ -1,0 +1,12 @@
+{
+ "id": "arxiv:2001.00001", "versioned_id": "arxiv:2001.00001v2", "title": "Frontier Exploration with Learned Occupancy Maps",
+ "authors": ["Ada Example", "Carl Placeholder"], "year": 2020,
+ "abstract": "We study how a mobile robot chooses frontiers to visit while building an occupancy grid, and show that a learned map prior shortens exploration paths.",
+ "sections": [
+  {"title": "1 Introduction", "text": "Exploration asks a robot to cover an unknown building quickly.\n\nFrontiers are the boundary between known free space and unknown space."},
+  {"title": "2 Method", "text": "The planner scores each frontier by information gain divided by travel cost. A convolutional network predicts the occupancy of unseen cells, which sharpens the gain estimate.\n\nThe zebrafish module is only mentioned here so that a search for it has one right answer."},
+  {"title": "3 Results", "text": "Across forty simulated floor plans the learned prior reduced path length by eleven percent."},
+  {"title": "References", "text": "[1] B. Yamauchi. A frontier-based approach for autonomous exploration. 1997."}
+ ],
+ "source_kind": "html", "abstract_only": false, "fetched_at": "2026-11-26T00:00:00Z"
+}
