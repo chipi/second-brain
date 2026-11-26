@@ -50,7 +50,9 @@ split into sections on its headings (pages when fewer than two are found) and ge
 poor text layer (under 50 words a page, or mostly non-words) is read by OCR as well and the better text kept
 (`source_kind` `ocr`, at most 60 pages). Each text records in `fulltext` what was tried and why it ended where it did;
 a final outcome (paywalled, no PDF in NTRS, scanned, thin page, no open full text) is not tried again unless `--retry`, a fetch
-error is. `status` reports the result per vertical.
+error is. `status` reports the result per vertical. `fetch` and `fulltext` exit 1 only when more than
+`--max-failed-share` of the papers they wanted failed (default 0.05; `0` fails on any): fewer is a warning, retried next
+run, so a first build with a few unreachable papers still serves.
 Tests: `make test`; `make lint`.
 
 ## Running it

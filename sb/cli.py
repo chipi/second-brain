@@ -71,6 +71,18 @@ def _metrics_file(a, families):
         obs.write_metrics_file(a.metrics_file, families)
 
 
+def _failed_exit(stats, max_share, step):
+    """A failed fetch is retried next run, so a few fail the step only above a share: a first build can then still serve."""
+    failed, wanted = stats.get("failed", 0), stats.get("wanted", 0)
+    if not failed:
+        return 0
+    if wanted and failed / wanted <= max_share:
+        print(f"sb: {step}: {failed} of {wanted} failed, within {max_share:.0%}: retried next run", file=sys.stderr)
+        return 0
+    print(f"sb: {step}: {failed} of {wanted} failed, over {max_share:.0%}", file=sys.stderr)
+    return 1
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="sb")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -78,17 +90,20 @@ def main(argv=None):
     common.add_argument("--log-format", choices=("text", "json"), help="text (default; json under serve): the log lines on stdout")
     mfile = argparse.ArgumentParser(add_help=False)
     mfile.add_argument("--metrics-file", help="write the run's outcome here as a Prometheus text file")
+    share = argparse.ArgumentParser(add_help=False)
+    share.add_argument("--max-failed-share", type=float, default=0.05,
+                       help="fail the step (exit 1) only when more than this share of the papers wanted failed (default 0.05; 0: any)")
 
     s = sub.add_parser("seed", help="write one manifest per seed entry into CONTENT/papers")
     s.add_argument("--content", required=True)
 
-    s = sub.add_parser("fetch", parents=[common, mfile], help="fetch metadata and text for manifests without a cached text")
+    s = sub.add_parser("fetch", parents=[common, mfile, share], help="fetch metadata and text for manifests without a cached text")
     s.add_argument("--content", required=True)
     s.add_argument("--data", required=True)
     s.add_argument("--limit", type=int)
     s.add_argument("--only", action="append", help="an id to fetch (repeatable)")
 
-    s = sub.add_parser("fulltext", parents=[common, mfile], help="upgrade abstract-only texts with an open HTML or PDF full text, recording what was tried")
+    s = sub.add_parser("fulltext", parents=[common, mfile, share], help="upgrade abstract-only texts with an open HTML or PDF full text, recording what was tried")
     s.add_argument("--content", required=True)
     s.add_argument("--data", required=True)
     s.add_argument("--limit", type=int)
@@ -128,7 +143,7 @@ def main(argv=None):
         stats = fetch_all(a.content, a.data, Fetcher(log=_progress(a)), a.limit, a.only)
         _result(a, stats)
         _metrics_file(a, obs.fetch_families(stats))
-        return 1 if stats["failed"] else 0
+        return _failed_exit(stats, a.max_failed_share, a.cmd)
     if a.cmd == "fulltext":
         try:
             stats = fulltext_all(a.content, a.data, Fetcher(log=_progress(a)), a.limit, a.only, a.retry)
@@ -137,7 +152,7 @@ def main(argv=None):
             return 2
         _result(a, stats)
         _metrics_file(a, obs.fulltext_families(stats, _text_kinds(a.data)))
-        return 1 if stats["failed"] else 0
+        return _failed_exit(stats, a.max_failed_share, a.cmd)
     if a.cmd == "status":
         st = report.status(a.content, a.data)
         print(json.dumps(st, indent=1) if a.json else report.render(st))

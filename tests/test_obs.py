@@ -260,5 +260,26 @@ class MetricsFile(unittest.TestCase):
         self.assertEqual(subprocess.run([script, "/nonexistent", "http://x"], capture_output=True).returncode, 2)
 
 
+class FailedShare(unittest.TestCase):
+    """A failed fetch is retried next run: a few fail the step only above a share, so a first build can still serve."""
+
+    def test_one_failure_in_291_is_a_warning_not_a_failed_step(self):
+        self.assertEqual(cli._failed_exit({"wanted": 291, "failed": 1}, 0.05, "fulltext"), 0)
+
+    def test_failures_over_the_share_fail_the_step(self):
+        self.assertEqual(cli._failed_exit({"wanted": 291, "failed": 15}, 0.05, "fulltext"), 1)
+
+    def test_a_share_of_zero_fails_on_any_failure(self):
+        self.assertEqual(cli._failed_exit({"wanted": 291, "failed": 1}, 0.0, "fetch"), 1)
+
+    def test_nothing_failed_is_success(self):
+        self.assertEqual(cli._failed_exit({"wanted": 0, "failed": 0}, 0.05, "fetch"), 0)
+
+    def test_the_option_is_read_by_fulltext(self):
+        tmp, content, data = support.make_library("f")
+        self.addCleanup(shutil.rmtree, tmp)
+        self.assertEqual(cli.main(["fulltext", "--content", content, "--data", data, "--only", "none:x", "--max-failed-share", "0"]), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
