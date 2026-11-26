@@ -29,10 +29,39 @@ Granola (meetings). The missing source was research papers. The operator decided
 | --- | --- |
 | The design | `docs/rfc/RFC-0001-the-library.md` |
 | The content repo | `/work/second-brain-content/main` (private): skeleton only so far |
-| The first research pass | four candidate lists, one per vertical, verified against arXiv's or NASA NTRS's API or a resolving DOI; to be moved into the content repo's `seed/` by the flotilla session, then pruned by the operator |
+| The first research pass | done 2026-11-26: the content repo's `seed/<vertical>.jsonl` (ai 162, software 198, robotics 117, space 101; `robotics-reserve.json` holds 56 more, verified, cut for size); every entry verified against arXiv's or NASA NTRS's API or a resolving DOI by the agent that found it, and a random 20 re-checked by the flotilla session (all matched) |
 | The tmux session | `second-brain`: windows `claude`, `terminal` (this repo), `content` |
 | flotilla's side | flotilla RFC-0015; case 1's plan `docs/wip/rfc-0014-case1-plan.md` there |
 | How flotilla reads MCP servers | `/work/flotilla/main/runtime/mcp_client.py` (streamable HTTP) and RFC-0014 §4.8 there |
+
+## The goal now: an MVP flotilla's case 1 can read
+
+The operator's aim (2026-11-26) is an MVP here, so flotilla's case 1 (the second brain's question
+flow) can read the library as one more MCP source. The flotilla session builds case 1 in parallel
+against a stub MCP server; the two meet at this repo's three tools. The MVP:
+
+- **Manifests from the seed:** one `papers/<id>.json` per seed entry (a paper may belong to more
+  than one vertical: 6 ids are in two lists, all agent papers in both `ai` and `software`, so a
+  manifest has `verticals: [...]`), approver "seeded 2026-11-26" (decision 1 below).
+- **`sb build`:** arXiv metadata and abstract for every arXiv paper; arXiv's HTML full text where it
+  exists (`html: true` in the seed), parsed with the standard library and chunked by section; NTRS
+  and DOI papers as their abstract (NTRS's API, Crossref's); SQLite FTS5 over all chunks.
+- **`sb serve`:** the read-only MCP server, streamable HTTP, `search`, `read`, `paper` as RFC-0001
+  §3.3 has them. It must answer flotilla's client (`runtime/mcp_client.py` in flotilla):
+  `initialize` with a session id, `tools/list`, `tools/call`.
+- **Fixture tests** (RFC-0001 §5).
+- **Left for after the MVP:** PDF text (the allowed dependency), embeddings, the evaluation set,
+  the installation's deploy, and flotilla's `library/watch`.
+
+## The seed's caveats
+
+- `tier` was set by year, differently per list (ai: 2023 and before is foundational; software:
+  2022; space: 2015; robotics: by judgment): normalise it, or drop it, in the manifests.
+- `first_author` is a last name taken mechanically; wrong for names with particles or non-Western
+  order. Take authors from the source's API at build time instead.
+- `why` lines are the research agents' own words, written without opening the papers.
+- NTRS records without a publication date got their year from the id's first four digits.
+- arXiv's `html` flag was checked only for recent papers; older ones say `false` unchecked.
 
 ## Next, in RFC-0001 §6's order
 
