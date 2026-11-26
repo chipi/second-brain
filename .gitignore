@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# A corpus never lives here (AGENTS.md rule 1)
+/corpus/
+/index/
+*.sqlite
+*.db
+
+# Editor and OS
+.DS_Store
+.vscode/
+.idea/
